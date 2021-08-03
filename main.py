@@ -53,16 +53,17 @@ class BaseRunner:
         message: Message,
         command: str,
         ) -> None:
-        await message.channel.send('\n'.join([
-            f'**{command} コマンドの説明**',
-        ]+self.func_comment+[
-            f'実行例',
-            '```',
-            f'@sensei {command} {str(self.example)[1:][:-1]}',
-            '```',
+        await message.channel.send('\n'.join(
+        [f'**{command} コマンドの説明**']+[
+            f'> {txt}'
+            for txt in self.func_comment
         ]+['引数の説明']+[
             f"    `'{arg}'`: {self.arg_comment[arg]}"
             for arg in self.arg_comment
+        ]+[f'実行例']+[
+            '```',
+            f'@sensei {command} {str(self.example)[1:][:-1]}',
+            '```',
         ]))
 
 class StartTimerSec(BaseRunner):
@@ -259,13 +260,13 @@ class Pomodoro(StartTimerMin):
         return super().check(arg)
 
 
-commands: Dict[str, BaseRunner] = {
-    'starttimer': StartTimerMin, # type: ignore
-    'starttimersec': StartTimerSec, # type: ignore
-    'stoptimer': StopTimer, # type: ignore
+commands = {
+    'starttimer': StartTimerMin,
+    'starttimersec': StartTimerSec,
+    'stoptimer': StopTimer,
     'pomodoro': Pomodoro,
-    'nokori': Nokori, # type: ignore
-    'share': Share, # type: ignore
+    'nokori': Nokori,
+    'share': Share,
 }
 
 @client.event
