@@ -65,7 +65,7 @@ class BaseRunner:
             for arg in self.arg_comment
         ]))
 
-class SetTimerSec(BaseRunner):
+class StartTimerSec(BaseRunner):
     def __init__(self):
         super().__init__()
         self.unit_int = 1
@@ -141,25 +141,25 @@ class SetTimerSec(BaseRunner):
                 f'お疲れさまでした！',
             ]))
 
-class SetTimerMin(SetTimerSec):
+class StartTimerMin(StartTimerSec):
     def __init__(self):
         super().__init__()
         self.unit_int = 60
         self.unit_str = '分'
         self.example = dotdict({'countdown':1, 'study':25, 'rest':5, 'repeat':2})
-        self.arg_comment = dotdict({'countdown':f'開始までの{self.unit_str}数', 'study':f'勉強する{self.unit_str}数', 'rest':f'休憩する{self.unit_str}数', 'repeat':'インターバルの回数'})
+        self.arg_comment = dotdict({'countdown':f'開始までの{self.unit_str}数', 'study':f'勉強する{self.unit_str}数', 'rest':f'休憩する{self.unit_str}数', 'repeat':'繰り返しの回数'})
         self.func_comment = [
-            '勉強＆休憩の間隔をタイマーが通知して支援してくれるコマンドです。',
+            '勉強＆休憩の繰り返しをタイマーが通知して支援してくれるコマンドです。',
             f'極端な値の入力は弾かれる場合があります。({self.unit_str}を指定するバージョン)',
         ]
 
-class DeleteTimer(BaseRunner):
+class StopTimer(BaseRunner):
     def __init__(self):
         super().__init__()
         self.example = dotdict({'id': '2bb8638717f17e44a3726afd245445c2'})
-        self.arg_comment = dotdict({'id': '削除したいタイマーid'})
+        self.arg_comment = dotdict({'id': '停止したいタイマーid'})
         self.func_comment = [
-            '必要がなくなったタイマーを削除するコマンドです。',
+            '必要がなくなったタイマーを停止するコマンドです。',
         ]
 
     def check(self, arg: dotdict) -> bool:
@@ -179,7 +179,7 @@ class DeleteTimer(BaseRunner):
             '```',
             f'\'id\': \'{_id}\'',
             '```',
-            f'をキャンセルしました',
+            f'を停止しました',
         ]))
 
 class Share(BaseRunner):
@@ -243,7 +243,7 @@ class Nokori(BaseRunner):
             'です。',
         ]))
 
-class Pomodoro(SetTimerMin):
+class Pomodoro(StartTimerMin):
     def __init__(self):
         super().__init__()
         self.example = dotdict({'repeat':4})
@@ -260,9 +260,9 @@ class Pomodoro(SetTimerMin):
 
 
 commands: Dict[str, BaseRunner] = {
-    'settimer': SetTimerMin, # type: ignore
-    'settimersec': SetTimerSec, # type: ignore
-    'deletetimer': DeleteTimer, # type: ignore
+    'starttimer': StartTimerMin, # type: ignore
+    'starttimersec': StartTimerSec, # type: ignore
+    'stoptimer': StopTimer, # type: ignore
     'pomodoro': Pomodoro,
     'nokori': Nokori, # type: ignore
     'share': Share, # type: ignore
