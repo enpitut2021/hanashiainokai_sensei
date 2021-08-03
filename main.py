@@ -15,6 +15,7 @@ from hashlib import md5
 
 load_dotenv()
 DISCORD_TOKEN = os.environ['DISCORD_TOKEN']
+SHARE_URL = os.environ['SHARE_URL']
 CANCELLED: DefaultDict[str, bool]= defaultdict(bool)
 
 client = discord.Client()
@@ -37,6 +38,7 @@ def myhash(message: Any) -> str:
 class BaseRunner:
     example: dotdict = dotdict()
     arg_comment = dotdict()
+    func_comment: List[str] = list()
     @staticmethod
     def check(arg: dotdict) -> bool:
         return True
@@ -54,18 +56,23 @@ class BaseRunner:
         ) -> None:
         await message.channel.send('\n'.join([
             f'**{command} コマンドの説明**',
+        ]+cls.func_comment+[
             f'実行例',
             '```',
             f'@sensei {command} {str(cls.example)[1:][:-1]}',
             '```',
         ]+['引数の説明']+[
-            f'    `{arg}`: {cls.arg_comment[arg]}'
+            f"    `'{arg}'`: {cls.arg_comment[arg]}"
             for arg in cls.arg_comment
         ]))
 
 class SetTimer(BaseRunner):
     example = dotdict({'countdown_sec':60, 'study_sec':3600, 'break_sec':600, 'interval_num':2})
     arg_comment = dotdict({'countdown_sec':'開始までの秒数', 'study_sec':'勉強する秒数', 'break_sec':'休憩する秒数', 'interval_num':'インターバルの回数'})
+    func_comment = [
+        '勉強＆休憩の間隔をタイマーが通知して支援してくれるコマンドです。',
+        '極端な値の入力は弾かれる場合があります。',
+    ]
     @staticmethod
     def check(arg: dotdict) -> bool:
         if not 'countdown_sec' in arg: return False
@@ -134,6 +141,9 @@ class SetTimer(BaseRunner):
 class DeleteTimer(BaseRunner):
     example = dotdict({'id': '2bb8638717f17e44a3726afd245445c2'})
     arg_comment = dotdict({'id': '削除したいタイマーid'})
+    func_comment = [
+        '必要がなくなったタイマーを削除するコマンドです。',
+    ]
     @staticmethod
     def check(arg: dotdict) -> bool:
         if not 'id' in arg: return False
@@ -155,9 +165,27 @@ class DeleteTimer(BaseRunner):
             f'をキャンセルしました',
         ]))
 
+class Share(BaseRunner):
+    example = dotdict({})
+    arg_comment = dotdict({'なし': '引数は要りません'})
+    func_comment = [
+        '勉強に活用する共有URLを教えてくれるコマンドです。'
+    ]
+    @staticmethod
+    async def run(
+        message: Message,
+        arg: dotdict,
+        ) -> None:
+        await message.channel.send('\n'.join([
+            '共有URLはこちらです！',
+            SHARE_URL,
+        ]))
+
+
 commands: Dict[str, BaseRunner] = {
     'settimer': SetTimer,       # type: ignore
     'deletetimer': DeleteTimer, # type: ignore
+    'share': Share, # type: ignore
 }
 
 @client.event
