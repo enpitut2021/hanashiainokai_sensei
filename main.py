@@ -34,8 +34,39 @@ def parse2dotdict(content: str) -> dotdict:
 def myhash(message: Any) -> str:
     return md5((str(message)+str(time())).encode()).hexdigest()
 
-class settimer:
-    example = "'countdown_sec':60, 'study_sec':3600, 'break_sec':600, 'interval_num':2"
+class BaseRunner:
+    example: dotdict = dotdict()
+    arg_comment = dotdict()
+    @staticmethod
+    def check(arg: dotdict) -> bool:
+        return True
+    @staticmethod
+    async def run(
+        message: Message,
+        arg: dotdict,
+        ) -> None:
+        return
+    @classmethod
+    async def description(
+        cls,
+        message: Message,
+        command: str,
+        ) -> None:
+        await message.channel.send('\n'.join([
+            f'**{command} コマンドの説明**',
+            f'実行例',
+            '```',
+            f'@sensei {command} {str(cls.example)[1:][:-1]}',
+            '```',
+        ]+['引数の説明']+[
+            f'    `{arg}`: {cls.arg_comment[arg]}'
+            for arg in cls.arg_comment
+        ]))
+
+class SetTimer(BaseRunner):
+    example = dotdict({'countdown_sec':60, 'study_sec':3600, 'break_sec':600, 'interval_num':2})
+    arg_comment = dotdict({'countdown_sec':'開始までの秒数', 'study_sec':'勉強する秒数', 'break_sec':'休憩する秒数', 'interval_num':'インターバルの回数'})
+    @staticmethod
     def check(arg: dotdict) -> bool:
         if not 'countdown_sec' in arg: return False
         if not 'study_sec'     in arg: return False
@@ -47,6 +78,7 @@ class settimer:
         if not type(arg.interval_num)  == int: return False
         return True
 
+    @staticmethod
     async def run(
         message: Message,
         arg: dotdict,
@@ -99,8 +131,9 @@ class settimer:
                 f'お疲れさまでした！',
             ]))
 
-class unsettimer:
-    example = "'id': '2bb8638717f17e44a3726afd245445c2'"
+class DeleteTimer(BaseRunner):
+    example = dotdict({'id': '2bb8638717f17e44a3726afd245445c2'})
+    arg_comment = dotdict({'id': '削除したいタイマーid'})
     @staticmethod
     def check(arg: dotdict) -> bool:
         if not 'id' in arg: return False
@@ -122,9 +155,9 @@ class unsettimer:
             f'をキャンセルしました',
         ]))
 
-commands = {
-    'settimer': settimer,
-    'unsettimer': unsettimer,
+commands: Dict[str, BaseRunner] = {
+    'settimer': SetTimer,       # type: ignore
+    'deletetimer': DeleteTimer, # type: ignore
 }
 
 @client.event
@@ -144,13 +177,11 @@ async def on_message(message: Message):
         if runner.check(arg):
             await runner.run(message, arg)
         else:
-            await message.channel.send(f'[USAGE] @sensei {command} {runner.example}')
+            await runner.description(message, command)
     else:
-        await message.channel.send('[USAGE_DESCRIPTION_TODO]')
-
-#    command = 'date'
-#    if content.startswith(command):
-#        await message.channel.send(f'{datetime.now()}')
+        for command in commands:
+            runner = commands[command]
+            await runner.description(message, command)
 
 def main():
     client.run(DISCORD_TOKEN)
