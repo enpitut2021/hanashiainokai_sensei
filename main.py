@@ -17,6 +17,9 @@ load_dotenv()
 DISCORD_TOKEN = os.environ['DISCORD_TOKEN']
 SHARE_URL = os.environ['SHARE_URL']
 CANCELLED: DefaultDict[str, bool]= defaultdict(bool)
+REPEAT_MAX = 10
+STUDY_MAX = 24*60*60
+REST_MAX = 24*60*60
 
 client = discord.Client()
 
@@ -48,12 +51,12 @@ class BaseRunner:
         arg: dotdict,
         ) -> None:
         return
-    async def description(
+    def _description(
         self,
         message: Message,
         command: str,
-        ) -> None:
-        await message.channel.send('\n'.join(
+        ) -> str:
+        return '\n'.join(
         [f'**{command} コマンドの説明**']+[
             f'> {txt}'
             for txt in self.func_comment
@@ -64,14 +67,20 @@ class BaseRunner:
             '```',
             f'@sensei {command} {str(self.example)[1:][:-1]}',
             '```',
-        ]))
+        ])
+    async def description(
+        self,
+        message: Message,
+        command: str,
+        ) -> None:
+        await message.channel.send( self._description(message, command) )
 
 class StartTimerSec(BaseRunner):
     def __init__(self):
         super().__init__()
         self.unit_int = 1
         self.unit_str = '秒'
-        self.example = dotdict({'countdown':60, 'study':1500, 'rest':300, 'repeat':2})
+        self.example = dotdict({'countdown':0, 'study':1, 'rest':1, 'repeat':2})
         self.arg_comment = dotdict({'countdown':f'開始までの{self.unit_str}数', 'study':f'勉強する{self.unit_str}数', 'rest':f'休憩する{self.unit_str}数', 'repeat':'インターバルの回数'})
         self.func_comment = [
             '勉強＆休憩の間隔をタイマーが通知して支援してくれるコマンドです。',
@@ -81,12 +90,15 @@ class StartTimerSec(BaseRunner):
     def check(self, arg: dotdict) -> bool:
         if not 'countdown' in arg: return False
         if not 'study'     in arg: return False
-        if not 'rest' in arg: return False
-        if not 'repeat'  in arg: return False
+        if not 'rest'      in arg: return False
+        if not 'repeat'    in arg: return False
         if not type(arg.countdown) == int: return False
         if not type(arg.study)     == int: return False
-        if not type(arg.rest) == int: return False
-        if not type(arg.repeat)  == int: return False
+        if not type(arg.rest)      == int: return False
+        if not type(arg.repeat)    == int: return False
+        if not self.unit_int * arg.study  in range(STUDY_MAX) : return False
+        if not self.unit_int * arg.rest   in range(REST_MAX)  : return False
+        if not                 arg.repeat in range(REPEAT_MAX): return False
         return True
 
     async def run(
@@ -98,7 +110,7 @@ class StartTimerSec(BaseRunner):
         _id = myhash(message)
         await message.channel.send('\n'.join([
             '```',
-            f'\'id\': \'{_id}\'',
+            f'@sensei stoptimer \'id\': \'{_id}\'',
             '```',
             f'{arg.countdown}{self.unit_str}後にタイマーをセットしました。',
             f'設定は、',
@@ -113,7 +125,7 @@ class StartTimerSec(BaseRunner):
                 break
             await message.channel.send('\n'.join([
                 '```',
-                f'\'id\': \'{_id}\'',
+                f'@sensei stoptimer \'id\': \'{_id}\'',
                 '```',
                 f'{i}/{arg.repeat}回目の勉強時間になりました。',
                 f'勉強を{arg.study}{self.unit_str}はじめてください。',
@@ -125,7 +137,7 @@ class StartTimerSec(BaseRunner):
                 continue
             await message.channel.send('\n'.join([
                 '```',
-                f'\'id\': \'{_id}\'',
+                f'@sensei stoptimer \'id\': \'{_id}\'',
                 '```',
                 f'{i}/{arg.repeat}回目の休憩時間になりました。',
                 f'休憩を{arg.rest}{self.unit_str}とってください。',
@@ -136,7 +148,7 @@ class StartTimerSec(BaseRunner):
                 return
             await message.channel.send('\n'.join([
                 '```',
-                f'\'id\': \'{_id}\'',
+                f'@sensei stoptimer \'id\': \'{_id}\'',
                 '```',
                 f'{arg.repeat}回のインターバルが完了しました。',
                 f'お疲れさまでした！',
@@ -147,7 +159,7 @@ class StartTimerMin(StartTimerSec):
         super().__init__()
         self.unit_int = 60
         self.unit_str = '分'
-        self.example = dotdict({'countdown':1, 'study':25, 'rest':5, 'repeat':2})
+        self.example = dotdict({'countdown':0, 'study':1, 'rest':1, 'repeat':2})
         self.arg_comment = dotdict({'countdown':f'開始までの{self.unit_str}数', 'study':f'勉強する{self.unit_str}数', 'rest':f'休憩する{self.unit_str}数', 'repeat':'繰り返しの回数'})
         self.func_comment = [
             '勉強＆休憩の繰り返しをタイマーが通知して支援してくれるコマンドです。',
@@ -262,7 +274,7 @@ class Pomodoro(StartTimerMin):
 
 commands = {
     'starttimer': StartTimerMin,
-#    'starttimersec': StartTimerSec,
+    'starttimersec': StartTimerSec,
     'stoptimer': StopTimer,
     'pomodoro': Pomodoro,
     'nokori': Nokori,
@@ -289,22 +301,24 @@ async def on_message(message: Message):
             await runner.description(message, command)
     else:
         if len(contents) > 0 and contents[0] == "helpall":
-            for command in commands:
-                runner = commands[command]()
-                await runner.description(message, command)
-        else:
-            for command in commands:
-                runner = commands[command]()
-                await message.channel.send(f"**{command}** コマンド: {' '.join(runner.func_comment)}")
             await message.channel.send('\n'.join([
-            '詳細を表示するには以下を実行してください。',
-            '```',
-            '@sensei helpall',
-            '```',
-            '特定のコマンドの詳細を表示するには以下を実行してください。',
-            '```',
-            '@sensei コマンド名　help',
-            '```',
+                commands[command]()._description(message, command)
+                for command in commands
+            ]))
+        else:
+            await message.channel.send('\n'.join(
+            [
+                f"**{command}** コマンド: {' '.join(commands[command]().func_comment)}"
+                for command in commands
+            ]+[
+                '詳細を表示するには以下を実行してください。',
+                '```',
+                '@sensei helpall',
+                '```',
+                '特定のコマンドの詳細を表示するには以下を実行してください。',
+                '```',
+                '@sensei コマンド名　help',
+                '```',
             ]))
 
 def main():
