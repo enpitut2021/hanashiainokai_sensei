@@ -75,7 +75,7 @@ class StartTimerSec(BaseRunner):
         self.arg_comment = dotdict({'countdown':f'開始までの{self.unit_str}数', 'study':f'勉強する{self.unit_str}数', 'rest':f'休憩する{self.unit_str}数', 'repeat':'インターバルの回数'})
         self.func_comment = [
             '勉強＆休憩の間隔をタイマーが通知して支援してくれるコマンドです。',
-            f'極端な値の入力は弾かれる場合があります。({self.unit_str}を指定するバージョン)',
+            f'極端な値の入力は弾かれる場合があります。',
         ]
 
     def check(self, arg: dotdict) -> bool:
@@ -151,7 +151,7 @@ class StartTimerMin(StartTimerSec):
         self.arg_comment = dotdict({'countdown':f'開始までの{self.unit_str}数', 'study':f'勉強する{self.unit_str}数', 'rest':f'休憩する{self.unit_str}数', 'repeat':'繰り返しの回数'})
         self.func_comment = [
             '勉強＆休憩の繰り返しをタイマーが通知して支援してくれるコマンドです。',
-            f'極端な値の入力は弾かれる場合があります。({self.unit_str}を指定するバージョン)',
+            f'極端な値の入力は弾かれる場合があります。',
         ]
 
 class StopTimer(BaseRunner):
@@ -262,7 +262,7 @@ class Pomodoro(StartTimerMin):
 
 commands = {
     'starttimer': StartTimerMin,
-    'starttimersec': StartTimerSec,
+#    'starttimersec': StartTimerSec,
     'stoptimer': StopTimer,
     'pomodoro': Pomodoro,
     'nokori': Nokori,
@@ -288,9 +288,24 @@ async def on_message(message: Message):
         else:
             await runner.description(message, command)
     else:
-        for command in commands:
-            runner = commands[command]()
-            await runner.description(message, command)
+        if len(contents) > 0 and contents[0] == "helpall":
+            for command in commands:
+                runner = commands[command]()
+                await runner.description(message, command)
+        else:
+            for command in commands:
+                runner = commands[command]()
+                await message.channel.send(f"**{command}** コマンド: {' '.join(runner.func_comment)}")
+            await message.channel.send('\n'.join([
+            '詳細を表示するには以下を実行してください。',
+            '```',
+            '@sensei helpall',
+            '```',
+            '特定のコマンドの詳細を表示するには以下を実行してください。',
+            '```',
+            '@sensei コマンド名　help',
+            '```',
+            ]))
 
 def main():
     client.run(DISCORD_TOKEN)
