@@ -36,57 +36,60 @@ def myhash(message: Any) -> str:
     return md5((str(message)+str(time())).encode()).hexdigest()
 
 class BaseRunner:
-    example: dotdict = dotdict()
-    arg_comment = dotdict()
-    func_comment: List[str] = list()
-    @staticmethod
-    def check(arg: dotdict) -> bool:
+    def __init__(self):
+        self.example: dotdict = dotdict()
+        self.arg_comment = dotdict()
+        self.func_comment: List[str] = list()
+    def check(self, arg: dotdict) -> bool:
         return True
-    @staticmethod
     async def run(
+        self,
         message: Message,
         arg: dotdict,
         ) -> None:
         return
-    @classmethod
     async def description(
-        cls,
+        self,
         message: Message,
         command: str,
         ) -> None:
         await message.channel.send('\n'.join([
             f'**{command} コマンドの説明**',
-        ]+cls.func_comment+[
+        ]+self.func_comment+[
             f'実行例',
             '```',
-            f'@sensei {command} {str(cls.example)[1:][:-1]}',
+            f'@sensei {command} {str(self.example)[1:][:-1]}',
             '```',
         ]+['引数の説明']+[
-            f"    `'{arg}'`: {cls.arg_comment[arg]}"
-            for arg in cls.arg_comment
+            f"    `'{arg}'`: {self.arg_comment[arg]}"
+            for arg in self.arg_comment
         ]))
 
-class SetTimer(BaseRunner):
-    example = dotdict({'countdown_sec':60, 'study_sec':3600, 'break_sec':600, 'interval_num':2})
-    arg_comment = dotdict({'countdown_sec':'開始までの秒数', 'study_sec':'勉強する秒数', 'break_sec':'休憩する秒数', 'interval_num':'インターバルの回数'})
-    func_comment = [
-        '勉強＆休憩の間隔をタイマーが通知して支援してくれるコマンドです。',
-        '極端な値の入力は弾かれる場合があります。',
-    ]
-    @staticmethod
-    def check(arg: dotdict) -> bool:
-        if not 'countdown_sec' in arg: return False
-        if not 'study_sec'     in arg: return False
-        if not 'break_sec'     in arg: return False
-        if not 'interval_num'  in arg: return False
-        if not type(arg.countdown_sec) == int: return False
-        if not type(arg.study_sec)     == int: return False
-        if not type(arg.break_sec)     == int: return False
-        if not type(arg.interval_num)  == int: return False
+class SetTimerSec(BaseRunner):
+    def __init__(self):
+        super().__init__()
+        self.unit_int = 1
+        self.unit_str = '秒'
+        self.example = dotdict({'countdown':60, 'study':1500, 'rest':300, 'repeat':2})
+        self.arg_comment = dotdict({'countdown':f'開始までの{self.unit_str}数', 'study':f'勉強する{self.unit_str}数', 'rest':f'休憩する{self.unit_str}数', 'repeat':'インターバルの回数'})
+        self.func_comment = [
+            '勉強＆休憩の間隔をタイマーが通知して支援してくれるコマンドです。',
+            f'極端な値の入力は弾かれる場合があります。({self.unit_str}を指定するバージョン)',
+        ]
+
+    def check(self, arg: dotdict) -> bool:
+        if not 'countdown' in arg: return False
+        if not 'study'     in arg: return False
+        if not 'rest' in arg: return False
+        if not 'repeat'  in arg: return False
+        if not type(arg.countdown) == int: return False
+        if not type(arg.study)     == int: return False
+        if not type(arg.rest) == int: return False
+        if not type(arg.repeat)  == int: return False
         return True
 
-    @staticmethod
     async def run(
+        self,
         message: Message,
         arg: dotdict,
         ) -> None:
@@ -96,37 +99,37 @@ class SetTimer(BaseRunner):
             '```',
             f'\'id\': \'{_id}\'',
             '```',
-            f'{arg.countdown_sec}秒後にタイマーをセットしました。',
+            f'{arg.countdown}{self.unit_str}後にタイマーをセットしました。',
             f'設定は、',
-            f'勉強時間が{arg.study_sec}秒',
-            f'休憩時間が{arg.break_sec}秒',
-            f'回数が{arg.interval_num}回',
+            f'勉強時間が{arg.study}{self.unit_str}',
+            f'休憩時間が{arg.rest}{self.unit_str}',
+            f'回数が{arg.repeat}回',
             f'です',
         ]))
-        await asyncio.sleep(arg.countdown_sec)
-        for i in range(1, arg.interval_num+1):
+        await asyncio.sleep(arg.countdown*self.unit_int)
+        for i in range(1, arg.repeat+1):
             if CANCELLED[_id]:
                 break
             await message.channel.send('\n'.join([
                 '```',
                 f'\'id\': \'{_id}\'',
                 '```',
-                f'{i}/{arg.interval_num}回目の勉強時間になりました。',
-                f'勉強を{arg.study_sec}秒はじめてください。',
+                f'{i}/{arg.repeat}回目の勉強時間になりました。',
+                f'勉強を{arg.study}{self.unit_str}はじめてください。',
             ]))
-            await asyncio.sleep(arg.study_sec)
+            await asyncio.sleep(arg.study*self.unit_int)
             if CANCELLED[_id]:
                 break
-            if i == arg.interval_num:
+            if i == arg.repeat:
                 continue
             await message.channel.send('\n'.join([
                 '```',
                 f'\'id\': \'{_id}\'',
                 '```',
-                f'{i}/{arg.interval_num}回目の休憩時間になりました。',
-                f'休憩を{arg.break_sec}秒とってください。',
+                f'{i}/{arg.repeat}回目の休憩時間になりました。',
+                f'休憩を{arg.rest}{self.unit_str}とってください。',
             ]))
-            await asyncio.sleep(arg.break_sec)
+            await asyncio.sleep(arg.rest*self.unit_int)
         else:
             if CANCELLED[_id]:
                 return
@@ -134,24 +137,38 @@ class SetTimer(BaseRunner):
                 '```',
                 f'\'id\': \'{_id}\'',
                 '```',
-                f'{arg.interval_num}回のインターバルが完了しました。',
+                f'{arg.repeat}回のインターバルが完了しました。',
                 f'お疲れさまでした！',
             ]))
 
+class SetTimerMin(SetTimerSec):
+    def __init__(self):
+        super().__init__()
+        self.unit_int = 60
+        self.unit_str = '分'
+        self.example = dotdict({'countdown':1, 'study':25, 'rest':5, 'repeat':2})
+        self.arg_comment = dotdict({'countdown':f'開始までの{self.unit_str}数', 'study':f'勉強する{self.unit_str}数', 'rest':f'休憩する{self.unit_str}数', 'repeat':'インターバルの回数'})
+        self.func_comment = [
+            '勉強＆休憩の間隔をタイマーが通知して支援してくれるコマンドです。',
+            f'極端な値の入力は弾かれる場合があります。({self.unit_str}を指定するバージョン)',
+        ]
+
 class DeleteTimer(BaseRunner):
-    example = dotdict({'id': '2bb8638717f17e44a3726afd245445c2'})
-    arg_comment = dotdict({'id': '削除したいタイマーid'})
-    func_comment = [
-        '必要がなくなったタイマーを削除するコマンドです。',
-    ]
-    @staticmethod
-    def check(arg: dotdict) -> bool:
+    def __init__(self):
+        super().__init__()
+        self.example = dotdict({'id': '2bb8638717f17e44a3726afd245445c2'})
+        self.arg_comment = dotdict({'id': '削除したいタイマーid'})
+        self.func_comment = [
+            '必要がなくなったタイマーを削除するコマンドです。',
+        ]
+
+    def check(self, arg: dotdict) -> bool:
         if not 'id' in arg: return False
         if not type(arg.id) == str: return False
         return True
 
-    @staticmethod
     async def run(
+        self,
         message: Message,
         arg: dotdict,
         ) -> None:
@@ -166,13 +183,16 @@ class DeleteTimer(BaseRunner):
         ]))
 
 class Share(BaseRunner):
-    example = dotdict({})
-    arg_comment = dotdict({'なし': '引数は要りません'})
-    func_comment = [
-        '勉強に活用する共有URLを教えてくれるコマンドです。'
-    ]
-    @staticmethod
+    def __init__(self):
+        super().__init__()
+        self.example = dotdict({})
+        self.arg_comment = dotdict({'なし': '引数は要りません'})
+        self.func_comment = [
+            '勉強に活用する共有URLを教えてくれるコマンドです。'
+        ]
+
     async def run(
+        self,
         message: Message,
         arg: dotdict,
         ) -> None:
@@ -181,10 +201,70 @@ class Share(BaseRunner):
             SHARE_URL,
         ]))
 
+class Nokori(BaseRunner):
+    def __init__(self):
+        super().__init__()
+        self.example = dotdict({'time': '23:59'})
+        self.arg_comment = dotdict({'time': '時:分'})
+        self.func_comment = [
+            '指定した時間まで残りの分数, 秒数,を教えてくれるコマンドです。',
+        ]
+
+    def check(self, arg: dotdict) -> bool:
+        if not 'time' in arg: return False
+        if not type(arg.time) == str: return False
+        try:
+            h, m = map(int, arg.time.split(':'))
+        except:
+            return False
+        if not h in range(24):
+            return False
+        if not m in range(60):
+            return False
+        return True
+
+    async def run(
+        self,
+        message: Message,
+        arg: dotdict,
+        ) -> None:
+        hour, minute = map(int, arg.time.split(':'))
+        second = 0
+        now = datetime.now()
+        dst =     second+60*    minute+    hour*60*60
+        src = now.second+60*now.minute+now.hour*60*60
+        ans = dst-src
+        if ans < 0:
+            ans += 24*60*60
+        await message.channel.send('\n'.join([
+            f'{arg.time}まで',
+            f'分にして`{ans//60}`分',
+            f'秒にして`{ans}`秒',
+            'です。',
+        ]))
+
+class Pomodoro(SetTimerMin):
+    def __init__(self):
+        super().__init__()
+        self.example = dotdict({'repeat':4})
+        self.arg_comment = dotdict({'repeat':'インターバルの回数'})
+        self.overwrite_arg  = dotdict({'countdown':0, 'study':25, 'rest':5})
+        self.func_comment = [
+            '「ポマドーロテクニック」25分間の勉強,5分間の休憩をrepeat回繰り返すコマンドです。',
+        ]
+
+    def check(self, arg: dotdict) -> bool:
+        for k in self.overwrite_arg:
+            arg[k] = self.overwrite_arg[k]
+        return super().check(arg)
+
 
 commands: Dict[str, BaseRunner] = {
-    'settimer': SetTimer,       # type: ignore
+    'settimer': SetTimerMin, # type: ignore
+    'settimersec': SetTimerSec, # type: ignore
     'deletetimer': DeleteTimer, # type: ignore
+    'pomodoro': Pomodoro,
+    'nokori': Nokori, # type: ignore
     'share': Share, # type: ignore
 }
 
@@ -200,7 +280,7 @@ async def on_message(message: Message):
     if len(contents) > 0 and contents[0] in commands:
         command = contents[0]
         content = ' '.join(contents[1:])
-        runner = commands[command]
+        runner = commands[command]()
         arg = parse2dotdict(content)
         if runner.check(arg):
             await runner.run(message, arg)
@@ -208,7 +288,7 @@ async def on_message(message: Message):
             await runner.description(message, command)
     else:
         for command in commands:
-            runner = commands[command]
+            runner = commands[command]()
             await runner.description(message, command)
 
 def main():
