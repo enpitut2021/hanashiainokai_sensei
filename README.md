@@ -3,3 +3,6 @@
 ## 環境構築
 - `requirements.txt`を元に`pip install`する
 - Gdrive`話し合いの会/hanashiainokai_sensei/.env`を同階層に保存する（discord botのアクセストークン）
+
+## 実行方法
+`python main.py`
