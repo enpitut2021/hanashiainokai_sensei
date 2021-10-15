@@ -352,27 +352,25 @@ commands = {
 
 @client.event
 async def on_message(message: Message):
-    if message.content == "hello":
-        normal_url = returnNormalUrl(message.channel.id)
-        json = {
-            "content": "下のボタンでタイマーストップ",
-            "components": [
-                {
-                    "type": 1,
-                    "components": [
-                        {
-                            "type": 2,
-                            "label": "Stop Timer",
-                            "style": 1,
-                            "custom_id": "click_one",
-                        },
-                    ]
-
-                }
-            ]
-        }
-        r = requests.post(normal_url, headers=headers, json=json)
-        return
+    normal_url = returnNormalUrl(message.channel.id)
+    json = {
+        "content": "下のボタンでタイマーストップ",
+        "components": [
+            {
+                "type": 1,
+                "components": [
+                    {
+                        "type": 2,
+                        "label": "Stop Timer",
+                        "style": 1,
+                        "custom_id": "click_one",
+                    },
+                ]
+            }
+        ]
+    }
+    r = requests.post(normal_url, headers=headers, json=json)
+    return
     if message.author == client.user:
         return
 
