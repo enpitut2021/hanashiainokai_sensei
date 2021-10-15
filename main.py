@@ -11,21 +11,68 @@ from dotdict import dotdict
 import asyncio
 from collections import defaultdict
 from hashlib import md5
+import requests
+from discord.ext import commands
+from pprint import pprint
+import aiohttp
 # %%
 
 load_dotenv()
 DISCORD_TOKEN = os.environ['DISCORD_TOKEN']
 SHARE_URL = os.environ['SHARE_URL']
-CANCELLED: DefaultDict[str, bool]= defaultdict(bool)
+CANCELLED: DefaultDict[str, bool] = defaultdict(bool)
 REPEAT_MAX = 10
 STUDY_MAX = 24*60*60
 REST_MAX = 24*60*60
 
-client = discord.Client()
+# %%
+TOKEN = DISCORD_TOKEN
+AuthB = "Bot " + TOKEN
+headers = { "Authorization": AuthB }
+def returnNormalUrl(channelId) -> str:
+    return "https://discordapp.com/api/channels/" + str(channelId) + "/messages"
+
+async def notify_callback(id, token):
+    url = f"https://discord.com/api/v8/interactions/{id}/{token}/callback"
+    json = { "type": 6 }
+    async with aiohttp.ClientSession() as s: # TODO わからん
+        async with s.post(url, json=json) as r:
+            if 200 <= r.status < 300:
+                return
+
+async def on_socket_response(msg):
+    if msg["t"] != "INTERACTION_CREATE":
+        return
+
+    pprint(msg)
+    custom_id = msg["d"]["data"]["custom_id"]
+
+    if custom_id[:4] == "del_":
+        _id = custom_id[4:]
+        global CANCELLED
+        CANCELLED[_id] = True
+        normal_url = returnNormalUrl(msg["d"]["channel_id"]) #returnNormalUrl関数の定義はこの記事のどこかにあるよ
+        json = {
+            "content": f"タイマー {_id} は削除されました。"
+        }
+        r = requests.post(normal_url, headers=headers, json=json)
+        await notify_callback(msg["d"]["id"], msg["d"]["token"]) #notify_callback関数は後で説明するよ
+
+class MyBot(commands.Bot):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.add_listener(on_socket_response)
+
+
+# %%
+
+client = MyBot(command_prefix='$', description='discord bot')
+#client = discord.Client()
 
 @client.event
 async def on_ready():
     print('We have logged in as {0.user}'.format(client))
+    await client.change_presence(activity=discord.Game("Python")) #Pythonをプレイ中
 
 def parse2dotdict(content: str) -> dotdict:
     try:
@@ -119,6 +166,27 @@ class StartTimerSec(BaseRunner):
             f'回数が{arg.repeat}回',
             f'です',
         ]))
+        # %%
+        normal_url = returnNormalUrl(message.channel.id)
+        json = {
+            "content": "以下のボタンでタイマーストップできます",
+            "components": [
+                {
+                    "type": 1,
+                    "components": [
+                        {
+                            "type": 2,
+                            "label": "Stop Timer",
+                            "style": 1,
+                            "custom_id": f"del_{_id}",
+                        },
+                    ]
+
+                }
+            ]
+        }
+        r = requests.post(normal_url, headers=headers, json=json)
+        # %%
         await asyncio.sleep(arg.countdown*self.unit_int)
         for i in range(1, arg.repeat+1):
             if CANCELLED[_id]:
@@ -281,8 +349,30 @@ commands = {
     'share': Share,
 }
 
+
 @client.event
 async def on_message(message: Message):
+    if message.content == "hello":
+        normal_url = returnNormalUrl(message.channel.id)
+        json = {
+            "content": "下のボタンでタイマーストップ",
+            "components": [
+                {
+                    "type": 1,
+                    "components": [
+                        {
+                            "type": 2,
+                            "label": "Stop Timer",
+                            "style": 1,
+                            "custom_id": "click_one",
+                        },
+                    ]
+
+                }
+            ]
+        }
+        r = requests.post(normal_url, headers=headers, json=json)
+        return
     if message.author == client.user:
         return
 
