@@ -44,19 +44,51 @@ async def on_socket_response(msg):
     if msg["t"] != "INTERACTION_CREATE":
         return
 
-    pprint(msg)
     custom_id = msg["d"]["data"]["custom_id"]
 
+    normal_url = returnNormalUrl(msg["d"]["channel_id"])
     if custom_id[:4] == "del_":
         _id = custom_id[4:]
         global CANCELLED
         CANCELLED[_id] = True
-        normal_url = returnNormalUrl(msg["d"]["channel_id"]) #returnNormalUrl関数の定義はこの記事のどこかにあるよ
         json = {
             "content": f"タイマー {_id} は削除されました。"
         }
         r = requests.post(normal_url, headers=headers, json=json)
         await notify_callback(msg["d"]["id"], msg["d"]["token"]) #notify_callback関数は後で説明するよ
+    elif custom_id[:11] == "ButtonTimer":
+        pprint(msg)
+        min = int(custom_id.split("_")[-1])
+        if custom_id[:14] == "ButtonTimer_up":
+            min += 1
+        if custom_id[:14] == "ButtonTimer_dn":
+            min -= 1
+        json = {
+            "content": f"指定分:{min}",
+            "components": [
+                {
+                    "type": 1,
+                    "components": [
+                        {
+                            "type": 2,
+                            "label": "分+1",
+                            "style": 1,
+                            "custom_id": f"ButtonTimer_up_{min}",
+                        },
+                        {
+                            "type": 2,
+                            "label": "分-1",
+                            "style": 3,
+                            "custom_id": f"ButtonTimer_dn_{min}",
+                        },
+                    ]
+
+                }
+            ]
+        }
+        r = requests.patch(normal_url, headers=headers, json=json)
+        await notify_callback(msg["d"]["id"], msg["d"]["token"])
+
 
 class MyBot(commands.Bot):
     def __init__(self, **kwargs):
@@ -340,6 +372,56 @@ class Pomodoro(StartTimerMin):
         return super().check(arg)
 
 
+class ButtonTimer(BaseRunner):
+    def __init__(self):
+        super().__init__()
+        self.example = dotdict({})
+        self.arg_comment = dotdict({})
+        self.func_comment = [
+            'ボタンを押して操作するタイマーです。',
+        ]
+
+    def check(self, arg: dotdict) -> bool:
+
+        return True
+
+    async def run(
+        self,
+        message: Message,
+        arg: dotdict,
+        ) -> None:
+
+        # %%
+        min = 0
+        json = {
+            "content": f"指定分:{min}",
+            "components": [
+                {
+                    "type": 1,
+                    "components": [
+                        {
+                            "type": 2,
+                            "label": "分+1",
+                            "style": 1,
+                            "custom_id": f"ButtonTimer_up_{min}",
+                        },
+                        {
+                            "type": 2,
+                            "label": "分-1",
+                            "style": 3,
+                            "custom_id": f"ButtonTimer_dn_{min}",
+                        },
+                    ]
+
+                }
+            ]
+        }
+        normal_url = returnNormalUrl(message.channel.id)
+        r = requests.post(normal_url, headers=headers, json=json)
+        # %%
+
+
+
 commands = {
     'starttimer': StartTimerMin,
     'starttimersec': StartTimerSec,
@@ -347,6 +429,7 @@ commands = {
     'pomodoro': Pomodoro,
     'nokori': Nokori,
     'share': Share,
+    'buttontimer': ButtonTimer,
 }
 
 
@@ -412,7 +495,14 @@ async def on_message(message: Message):
             ]))
 
 def main():
-    client.run(DISCORD_TOKEN)
+    try:
+        client.run(DISCORD_TOKEN)
+    except:
+        exit()
 
 if __name__ == '__main__':
     main()
+
+
+
+
