@@ -15,96 +15,40 @@ import requests
 from discord.ext import commands
 from pprint import pprint
 import aiohttp
-# %%
+import dataclasses
+# %% グローバル変数（大文字）
 
 load_dotenv()
 DISCORD_TOKEN = os.environ['DISCORD_TOKEN']
+HEADERS = { "Authorization": f"Bot {DISCORD_TOKEN}" }
 SHARE_URL = os.environ['SHARE_URL']
+
 CANCELLED: DefaultDict[str, bool] = defaultdict(bool)
+
+@dataclasses.dataclass
+class TimerState:
+    study: int = 25
+    rest: int = 5
+    repeat: int = 3
+    start: bool = False
+
+TIMERSTATES = defaultdict(TimerState)
+
 REPEAT_MAX = 10
 STUDY_MAX = 24*60*60
 REST_MAX = 24*60*60
 
-# %%
-TOKEN = DISCORD_TOKEN
-AuthB = "Bot " + TOKEN
-headers = { "Authorization": AuthB }
+# %% 通常の関数
 def returnNormalUrl(channelId) -> str:
-    return "https://discordapp.com/api/channels/" + str(channelId) + "/messages"
+    return f"https://discordapp.com/api/channels/{channelId}/messages"
 
 async def notify_callback(id, token):
-    url = f"https://discord.com/api/v8/interactions/{id}/{token}/callback"
+    url = f"https://discord.com/api/v9/interactions/{id}/{token}/callback"
     json = { "type": 6 }
     async with aiohttp.ClientSession() as s: # TODO わからん
         async with s.post(url, json=json) as r:
             if 200 <= r.status < 300:
                 return
-
-async def on_socket_response(msg):
-    if msg["t"] != "INTERACTION_CREATE":
-        return
-
-    custom_id = msg["d"]["data"]["custom_id"]
-
-    normal_url = returnNormalUrl(msg["d"]["channel_id"])
-    if custom_id[:4] == "del_":
-        _id = custom_id[4:]
-        global CANCELLED
-        CANCELLED[_id] = True
-        json = {
-            "content": f"タイマー {_id} は削除されました。"
-        }
-        r = requests.post(normal_url, headers=headers, json=json)
-        await notify_callback(msg["d"]["id"], msg["d"]["token"]) #notify_callback関数は後で説明するよ
-    elif custom_id[:11] == "ButtonTimer":
-        pprint(msg)
-        min = int(custom_id.split("_")[-1])
-        if custom_id[:14] == "ButtonTimer_up":
-            min += 1
-        if custom_id[:14] == "ButtonTimer_dn":
-            min -= 1
-        json = {
-            "content": f"指定分:{min}",
-            "components": [
-                {
-                    "type": 1,
-                    "components": [
-                        {
-                            "type": 2,
-                            "label": "分+1",
-                            "style": 1,
-                            "custom_id": f"ButtonTimer_up_{min}",
-                        },
-                        {
-                            "type": 2,
-                            "label": "分-1",
-                            "style": 3,
-                            "custom_id": f"ButtonTimer_dn_{min}",
-                        },
-                    ]
-
-                }
-            ]
-        }
-        r = requests.patch(normal_url, headers=headers, json=json)
-        await notify_callback(msg["d"]["id"], msg["d"]["token"])
-
-
-class MyBot(commands.Bot):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.add_listener(on_socket_response)
-
-
-# %%
-
-client = MyBot(command_prefix='$', description='discord bot')
-#client = discord.Client()
-
-@client.event
-async def on_ready():
-    print('We have logged in as {0.user}'.format(client))
-    await client.change_presence(activity=discord.Game("Python")) #Pythonをプレイ中
 
 def parse2dotdict(content: str) -> dotdict:
     try:
@@ -116,6 +60,14 @@ def parse2dotdict(content: str) -> dotdict:
 
 def myhash(message: Any) -> str:
     return md5((str(message)+str(time())).encode()).hexdigest()
+
+class Commands(dict):
+    def __call__(self, runner):
+        self[runner.__name__.lower()] = runner
+        return runner
+commands = Commands()
+
+# %% コマンドを定義するクラス
 
 class BaseRunner:
     def __init__(self):
@@ -154,6 +106,7 @@ class BaseRunner:
         ) -> None:
         await message.channel.send( self._description(message, command) )
 
+@commands
 class StartTimerSec(BaseRunner):
     def __init__(self):
         super().__init__()
@@ -184,9 +137,11 @@ class StartTimerSec(BaseRunner):
         self,
         message: Message,
         arg: dotdict,
+        _id: str = None,
         ) -> None:
         global CANCELLED
-        _id = myhash(message)
+        if _id == None:
+            _id = myhash(message)
         await message.channel.send('\n'.join([
             '```',
             f'@sensei stoptimer \'id\': \'{_id}\'',
@@ -217,7 +172,8 @@ class StartTimerSec(BaseRunner):
                 }
             ]
         }
-        r = requests.post(normal_url, headers=headers, json=json)
+        r = requests.post(normal_url, headers=HEADERS, json=json)
+        # TODO requests.postの合否判定が必要か？
         # %%
         await asyncio.sleep(arg.countdown*self.unit_int)
         for i in range(1, arg.repeat+1):
@@ -254,6 +210,7 @@ class StartTimerSec(BaseRunner):
                 f'お疲れさまでした！',
             ]))
 
+@commands
 class StartTimerMin(StartTimerSec):
     def __init__(self):
         super().__init__()
@@ -266,6 +223,7 @@ class StartTimerMin(StartTimerSec):
             f'極端な値の入力は弾かれる場合があります。',
         ]
 
+@commands
 class StopTimer(BaseRunner):
     def __init__(self):
         super().__init__()
@@ -295,6 +253,7 @@ class StopTimer(BaseRunner):
             f'を停止しました',
         ]))
 
+@commands
 class Share(BaseRunner):
     def __init__(self):
         super().__init__()
@@ -314,148 +273,108 @@ class Share(BaseRunner):
             SHARE_URL,
         ]))
 
-class Nokori(BaseRunner):
+
+@commands
+class GUITimer(BaseRunner):
     def __init__(self):
         super().__init__()
-        self.example = dotdict({'time': '23:59'})
-        self.arg_comment = dotdict({'time': '時:分'})
-        self.func_comment = [
-            '指定した時間まで残りの分数, 秒数,を教えてくれるコマンドです。',
-        ]
+        self.func_comment = [ 'ボタンを押して操作するタイマーです。', ]
 
-    def check(self, arg: dotdict) -> bool:
-        if not 'time' in arg: return False
-        if not type(arg.time) == str: return False
-        try:
-            h, m = map(int, arg.time.split(':'))
-        except:
-            return False
-        if not h in range(24):
-            return False
-        if not m in range(60):
-            return False
-        return True
-
-    async def run(
-        self,
-        message: Message,
-        arg: dotdict,
-        ) -> None:
-        hour, minute = map(int, arg.time.split(':'))
-        second = 0
-        now = datetime.now()
-        dst =     second+60*    minute+    hour*60*60
-        src = now.second+60*now.minute+now.hour*60*60
-        ans = dst-src
-        if ans < 0:
-            ans += 24*60*60
-        await message.channel.send('\n'.join([
-            f'{arg.time}まで',
-            f'分にして`{ans//60}`分',
-            f'秒にして`{ans}`秒',
-            'です。',
-        ]))
-
-class Pomodoro(StartTimerMin):
-    def __init__(self):
-        super().__init__()
-        self.example = dotdict({'repeat':4})
-        self.arg_comment = dotdict({'repeat':'インターバルの回数'})
-        self.overwrite_arg  = dotdict({'countdown':0, 'study':25, 'rest':5})
-        self.func_comment = [
-            '「ポマドーロテクニック」25分間の勉強,5分間の休憩をrepeat回繰り返すコマンドです。',
-        ]
-
-    def check(self, arg: dotdict) -> bool:
-        for k in self.overwrite_arg:
-            arg[k] = self.overwrite_arg[k]
-        return super().check(arg)
-
-
-class ButtonTimer(BaseRunner):
-    def __init__(self):
-        super().__init__()
-        self.example = dotdict({})
-        self.arg_comment = dotdict({})
-        self.func_comment = [
-            'ボタンを押して操作するタイマーです。',
-        ]
-
-    def check(self, arg: dotdict) -> bool:
-
-        return True
-
-    async def run(
-        self,
-        message: Message,
-        arg: dotdict,
-        ) -> None:
-
+    async def run(self, message: Message, arg: dotdict) -> None:
+        global TIMERSTATES
+        _id = myhash(message)
         # %%
-        min = 0
-        json = {
-            "content": f"指定分:{min}",
-            "components": [
-                {
-                    "type": 1,
-                    "components": [
-                        {
-                            "type": 2,
-                            "label": "分+1",
-                            "style": 1,
-                            "custom_id": f"ButtonTimer_up_{min}",
-                        },
-                        {
-                            "type": 2,
-                            "label": "分-1",
-                            "style": 3,
-                            "custom_id": f"ButtonTimer_dn_{min}",
-                        },
-                    ]
-
-                }
-            ]
-        }
+        json = { "content": "勉強時間(秒)", "components": [ { "type": 1, "components": [ {
+            "type": 3,
+            "custom_id": f"menu_study_{_id}",
+            "options":[{"label":f"{i}秒", "value":i} for i in map(str, range(5, 65, 5))],
+        }, ] } ] }
         normal_url = returnNormalUrl(message.channel.id)
-        r = requests.post(normal_url, headers=headers, json=json)
+        r = requests.post(normal_url, headers=HEADERS, json=json)
+        pprint(r)
+        json = { "content": "休憩時間(秒)", "components": [ { "type": 1, "components": [ {
+            "type": 3,
+            "custom_id": f"menu_rest_{_id}",
+            "options":[{"label":f"{i}秒", "value":i} for i in map(str, range(5, 65, 5))],
+        }, ] } ] }
+        normal_url = returnNormalUrl(message.channel.id)
+        r = requests.post(normal_url, headers=HEADERS, json=json)
+        pprint(r)
+        json = { "content": "繰り返し回数", "components": [ { "type": 1, "components": [ {
+            "type": 3,
+            "custom_id": f"menu_repeat_{_id}",
+            "options":[{"label":f"{i}回", "value":i} for i in map(str, range(1, 11))],
+        }, ] } ] }
+        normal_url = returnNormalUrl(message.channel.id)
+        r = requests.post(normal_url, headers=HEADERS, json=json)
+        pprint(r)
+        json = { "content": "タイマースタート", "components": [ { "type": 1, "components": [ {
+            "type": 2,
+            "label": "Start Timer",
+            "style": 3,
+            "custom_id": f"menu_start_{_id}",
+        }, ] } ] }
+        normal_url = returnNormalUrl(message.channel.id)
+        r = requests.post(normal_url, headers=HEADERS, json=json)
+        pprint(r)
+        while not TIMERSTATES[_id].start:
+            await asyncio.sleep(1)
+        await message.channel.send('\n'.join([
+            f"{TIMERSTATES[_id]}",
+        ]))
         # %%
 
+        runner = StartTimerSec()
+        arg = dotdict(
+            study  = TIMERSTATES[_id].study,
+            rest   = TIMERSTATES[_id].rest,
+            repeat = TIMERSTATES[_id].repeat,
+            countdown = 0,
+        )
+        if runner.check(arg):
+            await runner.run(message, arg, _id=_id)
+        else:
+            await runner.description(message, "starttimersec")
+client = discord.Client()
 
+@client.event
+async def on_ready():
+    print('We have logged in as {0.user}'.format(client))
+    await client.change_presence(activity=discord.Game("Python")) #Pythonをプレイ中
 
-commands = {
-    'starttimer': StartTimerMin,
-    'starttimersec': StartTimerSec,
-    'stoptimer': StopTimer,
-    'pomodoro': Pomodoro,
-    'nokori': Nokori,
-    'share': Share,
-    'buttontimer': ButtonTimer,
-}
-
+@client.event
+async def on_socket_response(message: Message):
+    if message["t"] != "INTERACTION_CREATE":
+        return
+    custom_id = message["d"]["data"]["custom_id"]
+    normal_url = returnNormalUrl(message["d"]["channel_id"])
+    prefix: List[str] = custom_id.split("_")
+    _id = custom_id.split("_")[-1]
+    if prefix[0] == "del":
+        global CANCELLED
+        CANCELLED[_id] = True
+        json = {
+            "content": f"タイマー {_id} は削除されました。"
+        }
+        r = requests.post(normal_url, headers=HEADERS, json=json)
+    elif prefix[0] == "menu":
+        global TIMERSTATES
+        if prefix[1] == "start":
+            TIMERSTATES[_id].start = True
+        else:
+            value = message["d"]["data"]["values"][0] # 単一選択なので要素1つのリストが返る
+            if prefix[1] == "rest":
+                TIMERSTATES[_id].rest = int(value)
+            if prefix[1] == "study":
+                TIMERSTATES[_id].study = int(value)
+            if prefix[1] == "repeat":
+                TIMERSTATES[_id].repeat = int(value)
+            json = { "content": f"[DEBUG]: {value}, {custom_id}" }
+            r = requests.post(normal_url, headers=HEADERS, json=json)
+    await notify_callback(message["d"]["id"], message["d"]["token"])
 
 @client.event
 async def on_message(message: Message):
-    if message.content == "hello":
-        normal_url = returnNormalUrl(message.channel.id)
-        json = {
-            "content": "下のボタンでタイマーストップ",
-            "components": [
-                {
-                    "type": 1,
-                    "components": [
-                        {
-                            "type": 2,
-                            "label": "Stop Timer",
-                            "style": 1,
-                            "custom_id": "click_one",
-                        },
-                    ]
-
-                }
-            ]
-        }
-        r = requests.post(normal_url, headers=headers, json=json)
-        return
     if message.author == client.user:
         return
 
@@ -495,14 +414,7 @@ async def on_message(message: Message):
             ]))
 
 def main():
-    try:
-        client.run(DISCORD_TOKEN)
-    except:
-        exit()
+    client.run(DISCORD_TOKEN)
 
 if __name__ == '__main__':
     main()
-
-
-
-
