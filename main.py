@@ -283,19 +283,22 @@ class GUITimer(BaseRunner):
     async def run(self, message: Message, arg: dotdict) -> None:
         global TIMERSTATES
         _id = myhash(message)
+        command = "starttimermin"
+        runner = commands[command]()
+        u = runner.unit_str
         # %%
-        json = { "content": "勉強時間(秒)", "components": [ { "type": 1, "components": [ {
+        json = { "content": f"勉強時間({u})", "components": [ { "type": 1, "components": [ {
             "type": 3,
             "custom_id": f"menu_study_{_id}",
-            "options":[{"label":f"{i}秒", "value":i} for i in map(str, range(5, 65, 5))],
+            "options":[{"label":f"{i}{u}", "value":i} for i in map(str, range(5, 65, 5))],
         }, ] } ] }
         normal_url = returnNormalUrl(message.channel.id)
         r = requests.post(normal_url, headers=HEADERS, json=json)
         pprint(r)
-        json = { "content": "休憩時間(秒)", "components": [ { "type": 1, "components": [ {
+        json = { "content": f"休憩時間({u})", "components": [ { "type": 1, "components": [ {
             "type": 3,
             "custom_id": f"menu_rest_{_id}",
-            "options":[{"label":f"{i}秒", "value":i} for i in map(str, range(5, 65, 5))],
+            "options":[{"label":f"{i}{u}", "value":i} for i in map(str, range(5, 65, 5))],
         }, ] } ] }
         normal_url = returnNormalUrl(message.channel.id)
         r = requests.post(normal_url, headers=HEADERS, json=json)
@@ -323,8 +326,6 @@ class GUITimer(BaseRunner):
             f"{TIMERSTATES[_id]}",
         ]))
         # %%
-
-        runner = StartTimerSec()
         arg = dotdict(
             study  = TIMERSTATES[_id].study,
             rest   = TIMERSTATES[_id].rest,
@@ -334,7 +335,7 @@ class GUITimer(BaseRunner):
         if runner.check(arg):
             await runner.run(message, arg, _id=_id)
         else:
-            await runner.description(message, "starttimersec")
+            await runner.description(message, command)
 client = discord.Client()
 
 @client.event
