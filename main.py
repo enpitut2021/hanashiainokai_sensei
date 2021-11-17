@@ -1,10 +1,12 @@
 # %%
 import os
+
+from requests import models
 import discord
 from discord.message import Message
 from dotenv import load_dotenv
 from datetime import datetime
-from time import time
+from time import sleep, time
 import ast
 from typing import *
 from dotdict import dotdict
@@ -66,7 +68,6 @@ class Commands(dict):
         self[runner.__name__.lower()] = runner
         return runner
 commands = Commands()
-
 # %% コマンドを定義するクラス
 
 class BaseRunner:
@@ -74,6 +75,7 @@ class BaseRunner:
         self.example: dotdict = dotdict()
         self.arg_comment = dotdict()
         self.func_comment: List[str] = list()
+        self.func_json : List= list()
     def check(self, arg: dotdict) -> bool:
         return True
     async def run(
@@ -118,6 +120,11 @@ class StartTimerSec(BaseRunner):
             '勉強＆休憩の間隔をタイマーが通知して支援してくれるコマンドです。',
             f'極端な値の入力は弾かれる場合があります。',
         ]
+        self.func_json = { "content": "タイマースタート", "components": [ { "type": 1, "components": [ {
+            "type": 2,
+            "label": "",
+            "style": 3,
+        }, ] } ] }
 
     def check(self, arg: dotdict) -> bool:
         if not 'countdown' in arg: return False
@@ -222,6 +229,11 @@ class StartTimerMin(StartTimerSec):
             '勉強＆休憩の繰り返しをタイマーが通知して支援してくれるコマンドです。',
             f'極端な値の入力は弾かれる場合があります。',
         ]
+        self.func_json = { "content": "タイマースタート", "components": [ { "type": 1, "components": [ {
+            "type": 2,
+            "label": "",
+            "style": 3,
+        }, ] } ] }
 
 @commands
 class StopTimer(BaseRunner):
@@ -232,6 +244,11 @@ class StopTimer(BaseRunner):
         self.func_comment = [
             '必要がなくなったタイマーを停止するコマンドです。',
         ]
+        self.func_json = { "content": "タイマースタート", "components": [ { "type": 1, "components": [ {
+            "type": 2,
+            "label": "",
+            "style": 3,
+        }, ] } ] }
 
     def check(self, arg: dotdict) -> bool:
         if not 'id' in arg: return False
@@ -262,6 +279,11 @@ class Share(BaseRunner):
         self.func_comment = [
             '勉強に活用する共有URLを教えてくれるコマンドです。'
         ]
+        self.func_json = { "content": "タイマースタート", "components": [ { "type": 1, "components": [ {
+            "type": 2,
+            "label": "",
+            "style": 3,
+        }, ] } ] }
 
     async def run(
         self,
@@ -279,7 +301,12 @@ class GUITimer(BaseRunner):
     def __init__(self):
         super().__init__()
         self.func_comment = [ 'ボタンを押して操作するタイマーです。', ]
-
+        self.func_json = { "content": "タイマースタート", "components": [ { "type": 1, "components": [ {
+            "type": 2,
+            "label": "",
+            "style": 3,
+            "custom_id":"gui",
+        }, ] } ] }
     async def run(self, message: Message, arg: dotdict) -> None:
         global TIMERSTATES
         _id = myhash(message)
@@ -413,6 +440,12 @@ async def on_message(message: Message):
                 '@sensei コマンド名　help',
                 '```',
             ]))
+            for command in commands:
+                rq=requests.post(returnNormalUrl(message.channel.id), headers=HEADERS, json=commands[command]().func_json)
+                pprint(rq)
+                # await message.channel.send('\n'+ commands[command]().func_json)
+                sleep(1)
+
 
 def main():
     client.run(DISCORD_TOKEN)
