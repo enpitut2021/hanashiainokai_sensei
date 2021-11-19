@@ -440,8 +440,26 @@ async def on_message(message: Message):
                 '@sensei コマンド名　help',
                 '```',
             ]))
+            _id = 20001
             for command in commands:
-                rq=requests.post(returnNormalUrl(message.channel.id), headers=HEADERS, json=commands[command]().func_json)
+                help_json = {
+                    "content": "以下のボタンで各コマンドを実行できます",
+                    "components": [
+                        {
+                            "type": 1,
+                            "components": [
+                                {
+                                    "type": 2,
+                                    "label": f"{command}",
+                                    "style": 3,
+                                    "custom_id": f"{_id}",
+                                },
+                            ]
+
+                        }
+                    ]
+                }
+                rq=requests.post(returnNormalUrl(message.channel.id), headers=HEADERS, json=help_json)
                 pprint(rq)
                 # await message.channel.send('\n'+ commands[command]().func_json)
                 sleep(1)
