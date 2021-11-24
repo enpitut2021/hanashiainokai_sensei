@@ -290,8 +290,8 @@ class Calendar(BaseRunner):
         arg: dotdict,
         ) -> None:
         await message.channel.send('\n'.join([
-            '共有URLはこちらです！',
-            '実際のカレンダーURLが出る',
+            'カレンダーのURLはこちらです！',
+            'https://hanashiainokairegistration.herokuapp.com/calendar',
         ]))
 
 
