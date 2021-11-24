@@ -6,7 +6,7 @@ import discord
 from discord.message import Message
 from dotenv import load_dotenv
 from datetime import datetime
-from time import sleep, time
+from time import time
 import ast
 from typing import *
 from dotdict import dotdict
@@ -75,7 +75,6 @@ class BaseRunner:
         self.example: dotdict = dotdict()
         self.arg_comment = dotdict()
         self.func_comment: List[str] = list()
-        self.func_json : List= list()
     def check(self, arg: dotdict) -> bool:
         return True
     async def run(
@@ -120,11 +119,6 @@ class StartTimerSec(BaseRunner):
             '勉強＆休憩の間隔をタイマーが通知して支援してくれるコマンドです。',
             f'極端な値の入力は弾かれる場合があります。',
         ]
-        self.func_json = { "content": "タイマースタート", "components": [ { "type": 1, "components": [ {
-            "type": 2,
-            "label": "",
-            "style": 3,
-        }, ] } ] }
 
     def check(self, arg: dotdict) -> bool:
         if not 'countdown' in arg: return False
@@ -229,11 +223,6 @@ class StartTimerMin(StartTimerSec):
             '勉強＆休憩の繰り返しをタイマーが通知して支援してくれるコマンドです。',
             f'極端な値の入力は弾かれる場合があります。',
         ]
-        self.func_json = { "content": "タイマースタート", "components": [ { "type": 1, "components": [ {
-            "type": 2,
-            "label": "",
-            "style": 3,
-        }, ] } ] }
 
 @commands
 class StopTimer(BaseRunner):
@@ -244,11 +233,6 @@ class StopTimer(BaseRunner):
         self.func_comment = [
             '必要がなくなったタイマーを停止するコマンドです。',
         ]
-        self.func_json = { "content": "タイマースタート", "components": [ { "type": 1, "components": [ {
-            "type": 2,
-            "label": "",
-            "style": 3,
-        }, ] } ] }
 
     def check(self, arg: dotdict) -> bool:
         if not 'id' in arg: return False
@@ -279,11 +263,6 @@ class Share(BaseRunner):
         self.func_comment = [
             '勉強に活用する共有URLを教えてくれるコマンドです。'
         ]
-        self.func_json = { "content": "タイマースタート", "components": [ { "type": 1, "components": [ {
-            "type": 2,
-            "label": "",
-            "style": 3,
-        }, ] } ] }
 
     async def run(
         self,
@@ -301,14 +280,10 @@ class GUITimer(BaseRunner):
     def __init__(self):
         super().__init__()
         self.func_comment = [ 'ボタンを押して操作するタイマーです。', ]
-        self.func_json = { "content": "タイマースタート", "components": [ { "type": 1, "components": [ {
-            "type": 2,
-            "label": "",
-            "style": 3,
-            "custom_id":"gui",
-        }, ] } ] }
+        
     async def run(self, message: Message, arg: dotdict) -> None:
         global TIMERSTATES
+        pprint(type(message))
         _id = myhash(message)
         command = "starttimermin"
         runner = commands[command]()
@@ -372,6 +347,8 @@ async def on_ready():
 
 @client.event
 async def on_socket_response(message: Message):
+    pprint(type(message))
+    pprint(message)
     if message["t"] != "INTERACTION_CREATE":
         return
     custom_id = message["d"]["data"]["custom_id"]
@@ -399,6 +376,11 @@ async def on_socket_response(message: Message):
                 TIMERSTATES[_id].repeat = int(value)
             json = { "content": f"[DEBUG]: {value}, {custom_id}" }
             r = requests.post(normal_url, headers=HEADERS, json=json)
+    elif prefix[0] == "help":
+        if prefix[1]=="share":
+            Share(BaseRunner).run(message,arg)
+        if prefix[1]=="guitimer":
+            GUITimer(BaseRunner)
     await notify_callback(message["d"]["id"], message["d"]["token"])
 
 @client.event
@@ -442,27 +424,30 @@ async def on_message(message: Message):
             ]))
             _id = 20001
             for command in commands:
-                help_json = {
-                    "content": "以下のボタンで各コマンドを実行できます",
-                    "components": [
-                        {
-                            "type": 1,
-                            "components": [
-                                {
-                                    "type": 2,
-                                    "label": f"{command}",
-                                    "style": 3,
-                                    "custom_id": f"{_id}",
-                                },
-                            ]
+                if command in ["share","guitimer"]:
+                    help_json = {
+                        "content": "以下のボタンで各コマンドを実行できます",
+                        "components": [
+                            {
+                                "type": 1,
+                                "components": [
+                                    {
+                                        "type": 2,
+                                        "label": f"{command}",
+                                        "style": 3,
+                                        "custom_id": f"help_{command}_{_id}",
+                                    },
+                                ]
 
-                        }
-                    ]
-                }
-                rq=requests.post(returnNormalUrl(message.channel.id), headers=HEADERS, json=help_json)
-                pprint(rq)
-                # await message.channel.send('\n'+ commands[command]().func_json)
-                sleep(1)
+                            }
+                        ]
+                    }
+                
+                
+                    rq=requests.post(returnNormalUrl(message.channel.id), headers=HEADERS, json=help_json)
+                    pprint(rq)
+                    # await message.channel.send('\n'+ commands[command]().func_json)
+                    await asyncio.sleep(1) # TODO
 
 
 def main():
