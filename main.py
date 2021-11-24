@@ -274,6 +274,26 @@ class Share(BaseRunner):
             SHARE_URL,
         ]))
 
+@commands
+class Calendar(BaseRunner):
+    def __init__(self):
+        super().__init__()
+        self.example = dotdict({})
+        self.arg_comment = dotdict({'なし': '引数は要りません'})
+        self.func_comment = [
+            '作業会予約カレンダーのURLを教えてくれるコマンドです。'
+        ]
+
+    async def run(
+        self,
+        message: Message,
+        arg: dotdict,
+        ) -> None:
+        await message.channel.send('\n'.join([
+            '共有URLはこちらです！',
+            '実際のカレンダーURLが出る',
+        ]))
+
 
 @commands
 class GUITimer(BaseRunner):
@@ -348,7 +368,7 @@ async def on_ready():
 @client.event
 async def on_socket_response(message: Message):
     pprint(type(message))
-    pprint(message)
+    pprint(message["op"])
     if message["t"] != "INTERACTION_CREATE":
         return
     custom_id = message["d"]["data"]["custom_id"]
@@ -376,11 +396,11 @@ async def on_socket_response(message: Message):
                 TIMERSTATES[_id].repeat = int(value)
             json = { "content": f"[DEBUG]: {value}, {custom_id}" }
             r = requests.post(normal_url, headers=HEADERS, json=json)
-    elif prefix[0] == "help":
-        if prefix[1]=="share":
-            Share(BaseRunner).run(message,arg)
-        if prefix[1]=="guitimer":
-            GUITimer(BaseRunner)
+    # elif prefix[0] == "help":
+    #     if prefix[1]=="share":
+    #         Share(BaseRunner).run(message,arg)
+    #     if prefix[1]=="guitimer":
+    #         GUITimer(BaseRunner)
     await notify_callback(message["d"]["id"], message["d"]["token"])
 
 @client.event
@@ -424,7 +444,7 @@ async def on_message(message: Message):
             ]))
             _id = 20001
             for command in commands:
-                if command in ["share","guitimer"]:
+                if command in ["share","calendar","guitimer"]:
                     help_json = {
                         "content": "以下のボタンで各コマンドを実行できます",
                         "components": [
