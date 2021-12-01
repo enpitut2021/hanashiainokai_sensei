@@ -1,5 +1,5 @@
 import requests, json
-from discordwebhook import discord
+from discordwebhook import Discord
 
 url = requests.get("https://jsonplaceholder.typicode.com/users")
 text = url.text
