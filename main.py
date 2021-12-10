@@ -469,6 +469,16 @@ async def on_message(message: Message):
                     # await message.channel.send('\n'+ commands[command]().func_json)
                     await asyncio.sleep(1) # TODO
 
+#チャンネルIDを取得
+# @client.event
+# async def on_ready():
+#     for channel in client.get_all_channels():
+#         print("----------")
+#         print("チャンネル名：" + str(channel.name)
+#         print("チャンネルID：" + str(channel.id)
+#         print("----------")
+
+
 
 def main():
     client.run(DISCORD_TOKEN)
