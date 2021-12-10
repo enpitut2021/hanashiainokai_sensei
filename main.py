@@ -366,6 +366,7 @@ async def on_ready():
     await client.change_presence(activity=discord.Game("Python")) #Pythonをプレイ中
 
 @client.event
+<<<<<<< HEAD
 async def on_socket_response(message: Message):
     pprint(type(message))
     pprint(message["op"])
@@ -405,6 +406,28 @@ async def on_socket_response(message: Message):
 
 @client.event
 async def on_message(message: Message):
+=======
+async def on_message(message: Message):
+    normal_url = returnNormalUrl(message.channel.id)
+    json = {
+        "content": "下のボタンでタイマーストップ",
+        "components": [
+            {
+                "type": 1,
+                "components": [
+                    {
+                        "type": 2,
+                        "label": "Stop Timer",
+                        "style": 1,
+                        "custom_id": "click_one",
+                    },
+                ]
+            }
+        ]
+    }
+    r = requests.post(normal_url, headers=headers, json=json)
+    return
+>>>>>>> da029cfb56174374dc295d1e8a62994118dd0eec
     if message.author == client.user:
         return
 
