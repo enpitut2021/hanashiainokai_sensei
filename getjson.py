@@ -56,6 +56,11 @@ async def loop():
 # 60秒に一回ループ
 @tasks.loop(seconds=60)
 async def send_text(msg, send_time):
+    """特定の時間にmsgをCHANNEL_IDに送信する
+    TODO: 
+        * 60秒にいっかいループするようなってるので直す
+    """
+    assert len(time) == 5, f"時間の設定は(year, month, day, hour, minute)です、それ以外は動作しません。現在：{send_time}"
     # 現在の時刻
     now = get_time() # <- (year, month, day, hour, minute)
     
@@ -80,6 +85,7 @@ def time_equal(time1, time2):
     return True
 
 def get_time():
+    """今の時間を(year, month, day, hour, minute)で返す"""
     now = datetime.datetime.now() 
     year = now.year # 年 <- int
     month = now.month # 月 <- int
