@@ -18,11 +18,17 @@ HEADERS = {"Authorization": f"Bot {DISCORD_TOKEN}"}
 SHARE_URL = os.environ['SHARE_URL']
 
 #CANCELLED: DefaultDict[str, bool] = defaultdict(bool)
-CHANNEL_ID = 870493181555400714
+CHANNEL_ID = 918004115026616340
 
 client = discord.Client()
 
 # start = calendar['start_time']
+
+
+@client.event
+async def on_ready():
+    print('We have logged in as {0.user}'.format(client))
+    await client.change_presence(activity=discord.Game("Json"))
 
 
 def get_json(year, month, day):
@@ -60,6 +66,7 @@ def get_time():
     minute = now.minute  # 分 <- int
     return (year, month, day, hour, minute)
 
+
 def time_equal(time1, time2):
     """時間を比較するときに使う"""
     assert len(time1) == len(time2)
@@ -83,30 +90,36 @@ def time_equal(time1, time2):
     # if time1 < 0:
 
 
-
 @tasks.loop(seconds=60)
 async def check_loop():
+    await client.wait_until_ready()
 
     year, month, day, hour, minute = get_time()
     logger.debug("Starting schedule check")
     schedules = get_json(year, month, day)
     logger.debug(f"schedules found: {schedules}")
     for schedule in schedules:
+
+        ## ここ
+        msg = "15分後に勉強会 【" + schedule["summary"] + "】 が始まります\n" + \
+        "内容 【" +schedule["description"] +"】\n開始時間は 【" +  schedule["start_time"] +\
+        "】\n終了時間は 【" + schedule["end_time"] +"】\n勉強部屋は "+  schedule["room"] +"のチャンネルです\n"
+        # await send_text(msg)
+        
         # ssはschedule start(スケジュールの開始時間)の略
         ss_year, ss_month, ss_day = year, month, day  # <- 今日なのでnowと同じ
         # <- これはschedulesのstart_timeを分割してintにしたもの
         ss_hour, ss_minute = list(map(int, schedule["start_time"].split(':')))
-
         # スケジュールの15分前かどうかをチェック
-        pre_15= datetime.datetime(ss_year, ss_month, ss_day, ss_hour, ss_minute) - datetime.timedelta(minutes=15)
+        pre_15 = datetime.datetime(
+            ss_year, ss_month, ss_day, ss_hour, ss_minute) - datetime.timedelta(minutes=15)
         if time_equal((year, month, day, hour, minute), (pre_15.year, pre_15.month, pre_15.day, pre_15.hour, pre_15.minute)):
             # 15分前なら送信する
-            send_text(schedules)
+            await send_text(msg)
 
         # スケジュールの開始時かどうかをチェック
         if time_equal((year, month, day, hour, minute), (ss_year, ss_month, ss_day, ss_hour, ss_minute)):
-            # 15分前なら送信する
-            send_text(schedules)
+            await send_text(msg)
 
 # @tasks.loop(seconds=60)
 # async def loop():
@@ -132,19 +145,22 @@ async def check_loop():
 #         await channel.send(f"""{month}/{day} {schedule_dict["start_time"]}~{schedule_dict["end_time"]} {schedule_dict["summary"]} 勉強部屋{schedule_dict["room"]}""")
 
 
-def send_text(msg):
-
-    logger.debug(f"Sending text {msg}")
+async def send_text(msg):
+    logger.debug(msg)
     channel = client.get_channel(CHANNEL_ID)
-    #TODOメッセージ表示をわかりやすく
-    channel.send('\n'.join([
-            '```',
-            f'{msg}',
-            '```',
-            
-        ]))
+    logger.debug(f"Sending to channel:{channel}")
+    # TODOメッセージ表示をわかりやすく
+    await channel.send(msg)
+    #
+    # ('\n'.join([
+    #         '```',
+    #         f'{msg}',
+    #         '```',
 
-@tasks.loop(seconds=60)
+    #     ]))
+
+
+@tasks.loop(seconds=5)
 async def morning_event():
     # ---現在の時刻を取得---
     now = get_time()
@@ -185,8 +201,8 @@ async def morning_event():
 
 if __name__ == '__main__':
 
-    check_loop.start()
     # Botの起動とDiscordサーバーへの接続
+    check_loop.start()
     client.run(DISCORD_TOKEN)
 
     # dt_now = datetime.datetime.now()
