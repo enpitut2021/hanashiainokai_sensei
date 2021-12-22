@@ -366,7 +366,6 @@ async def on_ready():
     await client.change_presence(activity=discord.Game("Python")) #Pythonをプレイ中
 
 @client.event
-<<<<<<< HEAD
 async def on_socket_response(message: Message):
     pprint(type(message))
     pprint(message["op"])
@@ -406,28 +405,6 @@ async def on_socket_response(message: Message):
 
 @client.event
 async def on_message(message: Message):
-=======
-async def on_message(message: Message):
-    normal_url = returnNormalUrl(message.channel.id)
-    json = {
-        "content": "下のボタンでタイマーストップ",
-        "components": [
-            {
-                "type": 1,
-                "components": [
-                    {
-                        "type": 2,
-                        "label": "Stop Timer",
-                        "style": 1,
-                        "custom_id": "click_one",
-                    },
-                ]
-            }
-        ]
-    }
-    r = requests.post(normal_url, headers=headers, json=json)
-    return
->>>>>>> da029cfb56174374dc295d1e8a62994118dd0eec
     if message.author == client.user:
         return
 
@@ -466,8 +443,10 @@ async def on_message(message: Message):
                 '```',
             ]))
             _id = 20001
+            pprint(commands)
             for command in commands:
-                if command in ["share","calendar","guitimer"]:
+                pprint(command)
+                if command in ['share','calendar','guitimer']:
                     help_json = {
                         "content": "以下のボタンで各コマンドを実行できます",
                         "components": [
@@ -491,16 +470,6 @@ async def on_message(message: Message):
                     pprint(rq)
                     # await message.channel.send('\n'+ commands[command]().func_json)
                     await asyncio.sleep(1) # TODO
-
-#チャンネルIDを取得
-# @client.event
-# async def on_ready():
-#     for channel in client.get_all_channels():
-#         print("----------")
-#         print("チャンネル名：" + str(channel.name)
-#         print("チャンネルID：" + str(channel.id)
-#         print("----------")
-
 
 
 def main():
