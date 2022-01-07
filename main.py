@@ -442,7 +442,7 @@ async def on_message(message: Message):
                 '@sensei コマンド名　help',
                 '```',
             ]))
-            
+
             pprint(commands)
             for command in commands:
                 pprint(command)
