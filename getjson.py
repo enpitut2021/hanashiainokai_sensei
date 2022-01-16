@@ -7,17 +7,17 @@ import os
 import datetime
 from time import sleep
 
-from logger import logger, set_log_level
+from senseibot.logger import logger, set_log_level
 
 set_log_level("DEBUG")
-#from collections import defaultdict
+# from collections import defaultdict
 
 load_dotenv()
-DISCORD_TOKEN = os.environ['DISCORD_TOKEN']
+DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 HEADERS = {"Authorization": f"Bot {DISCORD_TOKEN}"}
-SHARE_URL = os.environ['SHARE_URL']
+SHARE_URL = os.environ["SHARE_URL"]
 
-#CANCELLED: DefaultDict[str, bool] = defaultdict(bool)
+# CANCELLED: DefaultDict[str, bool] = defaultdict(bool)
 CHANNEL_ID = 918004115026616340
 
 client = discord.Client()
@@ -27,7 +27,7 @@ client = discord.Client()
 
 @client.event
 async def on_ready():
-    print('We have logged in as {0.user}'.format(client))
+    print("We have logged in as {0.user}".format(client))
     await client.change_presence(activity=discord.Game("Json"))
 
 
@@ -40,19 +40,20 @@ def get_json(year, month, day):
             "summary": str,
             "description" : str,
             "start_time": str,
-            "end_time": str, 
+            "end_time": str,
             "room" :str
         } ... ]
     """
     url = requests.get(
-        f"https://hanashiainokairegistration.herokuapp.com/tobot/{year}/{month}/{day}/")
+        f"https://hanashiainokairegistration.herokuapp.com/tobot/{year}/{month}/{day}/"
+    )
     text = url.text
     logger.debug(text)
     if text is None:
         return []
     else:
         data = json.loads(text)
-        schedules = data[f"{year}.{month}.{day}"]
+        schedules = data[f"{year:04d}.{month:02d}.{day:02d}"]
         return schedules
 
 
@@ -101,25 +102,61 @@ async def check_loop():
     for schedule in schedules:
 
         ## ここ
-        msg = "15分後に勉強会 【" + schedule["summary"] + "】 が始まります\n" + \
-        "内容 【" +schedule["description"] +"】\n開始時間は 【" +  schedule["start_time"] +\
-        "】\n終了時間は 【" + schedule["end_time"] +"】\n勉強部屋は "+  schedule["room"] +"のチャンネルです\n"
-        # await send_text(msg)
+        msg = (
+            
+            "15分後に勉強会 【"
+            + schedule["summary"]
+            + "】 が始まります\n"
+            + "内容 【"
+            + schedule["description"]
+            + "】\n開始時間は 【"
+            + schedule["start_time"]
+            + "】\n終了時間は 【"
+            + schedule["end_time"]
+            + "】\n勉強部屋は "
+            + schedule["room"]
+            + "のチャンネルです\n"
+        )
         
+        now_msg = (
+            
+            "今から勉強会 【"
+            + schedule["summary"]
+            + "】 が始まります\n"
+            + "内容 【"
+            + schedule["description"]
+            + "】\n開始時間は 【"
+            + schedule["start_time"]
+            + "】\n終了時間は 【"
+            + schedule["end_time"]
+            + "】\n勉強部屋は "
+            + schedule["room"]
+            + "のチャンネルです\n"
+        )
+        # await send_text(msg)
+
         # ssはschedule start(スケジュールの開始時間)の略
         ss_year, ss_month, ss_day = year, month, day  # <- 今日なのでnowと同じ
         # <- これはschedulesのstart_timeを分割してintにしたもの
-        ss_hour, ss_minute = list(map(int, schedule["start_time"].split(':')))
+        ss_hour, ss_minute = list(map(int, schedule["start_time"].split(":")))
         # スケジュールの15分前かどうかをチェック
         pre_15 = datetime.datetime(
-            ss_year, ss_month, ss_day, ss_hour, ss_minute) - datetime.timedelta(minutes=15)
-        if time_equal((year, month, day, hour, minute), (pre_15.year, pre_15.month, pre_15.day, pre_15.hour, pre_15.minute)):
+            ss_year, ss_month, ss_day, ss_hour, ss_minute
+        ) - datetime.timedelta(minutes=15)
+        if time_equal(
+            (year, month, day, hour, minute),
+            (pre_15.year, pre_15.month, pre_15.day, pre_15.hour, pre_15.minute),
+        ):
             # 15分前なら送信する
             await send_text(msg)
 
         # スケジュールの開始時かどうかをチェック
-        if time_equal((year, month, day, hour, minute), (ss_year, ss_month, ss_day, ss_hour, ss_minute)):
-            await send_text(msg)
+        if time_equal(
+            (year, month, day, hour, minute),
+            (ss_year, ss_month, ss_day, ss_hour, ss_minute),
+        ):
+            await send_text(now_msg)
+
 
 # @tasks.loop(seconds=60)
 # async def loop():
@@ -183,23 +220,25 @@ async def morning_event():
         # ssはSchedule Startの頭文字
         ss_year, ss_month, ss_day = year, month, day  # <- 今日なのでnowと同じ
         # <- これはschedulesのstart_timeを分割してintにしたもの
-        ss_hour, ss_minute = list(map(int, schedule["start_time"].split(':')))
+        ss_hour, ss_minute = list(map(int, schedule["start_time"].split(":")))
 
         # 15分前に通知を送信する設定
         msg = schedule  # <-15分前に送信する内容
-        send_text.start(msg, (ss_year, ss_month, ss_day,
-                        ss_hour, ss_minute - 1))  # <- 15分前に送信する
+        await send_text.start(
+            msg, (ss_year, ss_month, ss_day, ss_hour, ss_minute - 1)
+        )  # <- 15分前に送信する
 
         # 開始時に通知を送信する設定
         msg = schedule  # <-開始時に送信する内容
-        send_text.start(msg, (ss_year, ss_month, ss_day,
-                        ss_hour, ss_minute))  # <- 開始時に送信する
+        await send_text.start(
+            msg, (ss_year, ss_month, ss_day, ss_hour, ss_minute)
+        )  # <- 開始時に送信する
 
 
 # 15分ごとに登録状況をチェック
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     # Botの起動とDiscordサーバーへの接続
     check_loop.start()
