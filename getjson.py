@@ -20,7 +20,9 @@ SHARE_URL = os.environ["SHARE_URL"]
 # CANCELLED: DefaultDict[str, bool] = defaultdict(bool)
 CHANNEL_ID = 918004115026616340
 
-client = discord.Client()
+intents = discord.Intents.default()
+intents.members = True
+client = discord.Client(intents=intents)
 
 # start = calendar['start_time']
 
@@ -29,6 +31,13 @@ client = discord.Client()
 async def on_ready():
     print("We have logged in as {0.user}".format(client))
     await client.change_presence(activity=discord.Game("Json"))
+
+def get_user(name, discriminator):
+    user = discord.utils.get(client.users, name=name, discriminator=discriminator)
+    if user is None:
+        logger.debug(f"Can't find user: {name}#{discriminator}")
+        return None
+    return user
 
 
 def get_json(year, month, day):
@@ -101,10 +110,18 @@ async def check_loop():
     logger.debug(f"schedules found: {schedules}")
     for schedule in schedules:
 
+        participants = schedule.get('participants', [])
+        user_mentions = []
+        for participant in participants:
+            name, discriminator = participant.split('#')
+            user = get_user(name, discriminator)
+            if user is not None:
+                user_mentions.append(user.mention)
+        
         ## ここ
         msg = (
-            
-            "15分後に勉強会 【"
+            ' '.join(user_mentions)
+            + "\n15分後に勉強会 【"
             + schedule["summary"]
             + "】 が始まります\n"
             + "内容 【"
@@ -119,8 +136,8 @@ async def check_loop():
         )
         
         now_msg = (
-            
-            "今から勉強会 【"
+            ' '.join(user_mentions)
+            +"\n今から勉強会 【"
             + schedule["summary"]
             + "】 が始まります\n"
             + "内容 【"
