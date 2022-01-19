@@ -6,10 +6,10 @@ from senseibot.utils import returnNormalUrl
 from .BaseRunner import BaseRunner
 from senseibot.logger import logger
 from senseibot.utils import send_text
+from dotenv import load_dotenv
 
+load_dotenv()
 SHARE_URL = os.environ["SHARE_URL"]
-
-
 class Share(BaseRunner):
     def check(self, arg: dotdict) -> bool:
         pass
