@@ -121,7 +121,7 @@ async def check_loop():
         ## ここ
         msg = (
             ' '.join(user_mentions)
-            + "\n15分後に勉強会 【"
+            + "\n5分後に勉強会 【"
             + schedule["summary"]
             + "】 が始まります\n"
             + "内容 【"
