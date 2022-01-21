@@ -192,13 +192,6 @@ class StartTimerMin(StartTimerSec):
 
 
 class StopTimer(BaseRunner):
-    def __init__(self):
-        super().__init__()
-        self.example = dotdict({"id": "2bb8638717f17e44a3726afd245445c2"})
-        self.arg_comment = dotdict({"id": "停止したいタイマーid"})
-        self.func_comment = [
-            "必要がなくなったタイマーを停止するコマンドです。",
-        ]
 
     def check(self, arg: dotdict) -> bool:
         if not "id" in arg:
@@ -224,3 +217,18 @@ class StopTimer(BaseRunner):
                 ]
             )
         )
+
+    @property
+    def func_comment(self) -> list:
+        comment = [
+            "必要がなくなったタイマーを停止するコマンドです。",
+            
+        ]
+        return comment
+
+    @property
+    def arg_comment(self) -> dotdict():
+        comments = dotdict(
+            {"id": "停止したいタイマーid"           }
+        )
+        return comments
