@@ -159,7 +159,7 @@ async def check_loop():
         # スケジュールの15分前かどうかをチェック
         pre_15 = datetime.datetime(
             ss_year, ss_month, ss_day, ss_hour, ss_minute
-        ) - datetime.timedelta(minutes=15)
+        ) - datetime.timedelta(minutes=5)
         if time_equal(
             (year, month, day, hour, minute),
             (pre_15.year, pre_15.month, pre_15.day, pre_15.hour, pre_15.minute),
